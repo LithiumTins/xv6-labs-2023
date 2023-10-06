@@ -691,15 +691,6 @@ procdump(void)
   }
 }
 
-int trace(int traced)
-{
-  struct proc *p = myproc();
-
-  p->traced |= traced;
-
-  return 0;
-}
-
 int usednum(void)
 {
   int num = 0;
@@ -707,12 +698,4 @@ int usednum(void)
   for (int i = 0; i < NPROC; i++)
     num += (proc[i].state != UNUSED);
   return num;
-}
-
-int sysinfo(struct sysinfo *info)
-{
-    info->freemem = kfreemem();
-    info->nproc = usednum();
-
-    return 0;
 }
