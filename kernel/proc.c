@@ -288,6 +288,9 @@ fork(void)
     return -1;
   }
 
+  // Copy traced status from parent to child.
+  np->traced = p->traced;
+
   // Copy user memory from parent to child.
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
     freeproc(np);
@@ -685,4 +688,13 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+int trace(int traced)
+{
+  struct proc *p = myproc();
+
+  p->traced |= traced;
+
+  return 0;
 }
