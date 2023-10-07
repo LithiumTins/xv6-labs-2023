@@ -3,6 +3,7 @@
 #include "kernel/types.h"
 #include "user/user.h"
 #include "kernel/fcntl.h"
+#include "kernel/stat.h"
 
 // Parsed command representation
 #define EXEC  1
@@ -12,6 +13,8 @@
 #define BACK  5
 
 #define MAXARGS 10
+
+static int hint = 0;
 
 struct cmd {
   int type;
@@ -134,7 +137,8 @@ runcmd(struct cmd *cmd)
 int
 getcmd(char *buf, int nbuf)
 {
-  write(2, "$ ", 2);
+  if (hint)
+    write(2, "$ ", 2);
   memset(buf, 0, nbuf);
   gets(buf, nbuf);
   if(buf[0] == 0) // EOF
@@ -143,10 +147,15 @@ getcmd(char *buf, int nbuf)
 }
 
 int
-main(void)
+main()
 {
+  struct stat st;
   static char buf[100];
   int fd;
+
+  // Check if stdin is a terminal.
+  fstat(0, &st);
+  hint = st.type == T_DEVICE;
 
   // Ensure that three file descriptors are open.
   while((fd = open("console", O_RDWR)) >= 0){
@@ -163,6 +172,11 @@ main(void)
       buf[strlen(buf)-1] = 0;  // chop \n
       if(chdir(buf+3) < 0)
         fprintf(2, "cannot cd %s\n", buf+3);
+      continue;
+    }
+    if (buf[0] == 'w' && buf[1] == 'a' && buf[2] == 'i' && buf[3] == 't' && (buf[4] == ' ' || buf[4] == '\n')) {
+      if (wait(0) == -1)
+        fprintf(2, "no child\n");
       continue;
     }
     if(fork1() == 0)

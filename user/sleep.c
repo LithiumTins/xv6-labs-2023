@@ -1,13 +1,11 @@
 #include "kernel/types.h"
 #include "user.h"
+#include "mine.h"
 
 int main(int argc, char *argv[])
 {
     if (argc != 2)
-    {
-        printf("Usage: sleep time\n");
-        exit(-1);
-    }
+        err("usage: %s time\n", argv[0]);
 
     int ticks = atoi(argv[1]);
     sleep(ticks);

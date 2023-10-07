@@ -140,7 +140,7 @@ $U/initcode: $U/initcode.S
 tags: $(OBJS) _init
 	etags *.S *.c
 
-ULIB = $U/ulib.o $U/usys.o $U/printf.o $U/umalloc.o
+ULIB = $U/ulib.o $U/usys.o $U/printf.o $U/umalloc.o $U/mine.o
 
 ifeq ($(LAB),$(filter $(LAB), lock))
 ULIB += $U/statistics.o
@@ -196,6 +196,7 @@ UPROGS=\
 	$U/_primes\
 	$U/_trace\
 	$U/_sysinfotest\
+	$U/_uptime\
 
 
 
