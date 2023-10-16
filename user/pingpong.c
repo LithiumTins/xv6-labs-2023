@@ -1,5 +1,6 @@
 #include "kernel/types.h"
 #include "user.h"
+#include "mine.h"
 
 #define BUF_SIZE 128
 
@@ -10,10 +11,7 @@ int main(int argc, char *argv[])
 
     // create pipe
     if (pipe(ppfd) == -1 || pipe(cpfd) == -1)
-    {
-        printf("pipe fail\n");
-        exit(-1);
-    }
+        err("pipe fail\n");
     prfd = ppfd[0];
     pwfd = cpfd[1];
     crfd = cpfd[0];
@@ -23,43 +21,24 @@ int main(int argc, char *argv[])
     switch (fork())
     {
     case -1:
-        printf("fork fail\n");
-        exit(-1);
+        err("fork fail\n");
     case 0:     // child
         if (close(prfd) == -1 || close(pwfd) == -1)
-        {
-            printf("child close fail\n");
-            exit(-1);
-        }
+            err("child close fail\n");
         if ((num = read(crfd, buffer, BUF_SIZE)) == -1)
-        {
-            printf("child read fail\n");
-            exit(-1);
-        }
+            err("child read fail\n");
         buffer[num] = '\0';
         printf("%d: received %s\n", getpid(), buffer);
         if (write(cwfd, "pong", 4) == -1)
-        {
-            printf("parent write fail\n");
-            exit(-1);
-        }
+            err("child write fail\n");
         break;
     default:    // parent
         if (close(crfd) == -1 || close(cwfd) == -1)
-        {
-            printf("parent close fail\n");
-            exit(-1);
-        }
+            err("parent close fail\n");
         if (write(pwfd, "ping", 4) == -1)
-        {
-            printf("parent write fail\n");
-            exit(-1);
-        }
+            err("parent write fail\n");
         if ((num = read(prfd, buffer, BUF_SIZE)) == -1)
-        {
-            printf("parent read fail\n");
-            exit(-1);
-        }
+            err("parent read fail\n");
         buffer[num] = '\0';
         printf("%d: received %s\n", getpid(), buffer);
         break;

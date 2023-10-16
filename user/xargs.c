@@ -1,6 +1,6 @@
 #include "kernel/types.h"
 #include "user.h"
-#include "personal.h"
+#include "mine.h"
 
 #define BUF_SIZE 100
 
@@ -8,7 +8,6 @@ int main(int argc, char *argv[])
 {
     // copy argv
     char buf[BUF_SIZE];
-    printf("%p\n", buf);
     char *margv[ARGV_SIZE];
     for (int i = 0; i < argc; i++)
     {
@@ -21,10 +20,7 @@ int main(int argc, char *argv[])
     while ((read_num = read(STDIN_FILENO, buf + read_total, BUF_SIZE - read_total)) > 0)
         read_total += read_num;
     if (read_total >= BUF_SIZE)
-    {
-        fprintf(STDERR_FILENO, "xargs: input too big\n");
-        exit(-1);
-    }
+        err("xargs: input too big\n");
     buf[read_total] = '\0';
 
     // parse the args
@@ -42,6 +38,8 @@ int main(int argc, char *argv[])
     exec(margv[1], margv + 1);
 
     // Normally we don't get here
-    fprintf(STDERR_FILENO, "xargs: unable to execute the program %s\n", margv[1]);
+    err("xargs: unable to execute the program %s\n", margv[1]);
+
+    // handle the compile error
     exit(-1);
 }

@@ -1,6 +1,6 @@
 #include "kernel/types.h"
 #include "user.h"
-#include "personal.h"
+#include "mine.h"
 
 int prime = 2, next = 0, pfd[2], rfd, wfd;
 
@@ -26,25 +26,16 @@ int main(int argc, char *argv[])
         if (next)
         {
             if (close(wfd) == -1)
-            {
-                fprintf(STDERR_FILENO, "primes: close() fail\n");
-                exit(-1);
-            }
+                err("primes: close() fail\n");
             int status;
             if (wait(&status) == -1)
-            {
-                fprintf(STDERR_FILENO, "primes: wait() fail\n");
-                exit(-1);
-            }
+                err("primes: wait() fail\n");
         }
     }
     else                    // first process
     {
         if (close(wfd) == -1)
-        {
-            fprintf(STDERR_FILENO, "primes: close() fail\n");
-            exit(-1);
-        }
+            err("primes: close() fail\n");
 
         int status;
         while (wait(&status) != -1) ;
@@ -63,30 +54,18 @@ void test_prime(int num)
         if (!next)
         {
             if (pipe(pfd) == -1)
-            {
-                fprintf(STDERR_FILENO, "primes: pipe() fail\n");
-                exit(-1);
-            }
+                err("primes: pipe() fail\n");
 
             next = fork();
             if (next == -1)         // error
-            {
-                fprintf(STDERR_FILENO, "primes: fork() fail\n");
-                exit(-1);
-            }
+                err("primes: fork() fail\n");
             else if (next == 0)     // child
             {
                 rfd = pfd[0];
                 if (close(pfd[1]) == -1)
-                {
-                    fprintf(STDERR_FILENO, "primes: close() fail\n");
-                    exit(-1);
-                }
+                    err("primes: close() fail\n");
                 if (read(rfd, &prime, sizeof(prime)) != sizeof(prime))
-                {
-                    fprintf(STDERR_FILENO, "primes: child read() fail\n");
-                    exit(-1);
-                }
+                    err("primes: child read() fail\n");
                 printf("prime %d\n", prime);
                 return;
             }
@@ -94,18 +73,12 @@ void test_prime(int num)
             {
                 wfd = pfd[1];
                 if (close(pfd[0]) == -1)
-                {
-                    fprintf(STDERR_FILENO, "primes: close() fail\n");
-                    exit(-1);
-                }
+                    err("primes: close() fail\n");
             }
         }
         
         // send the num to next
         if (write(wfd, &num, sizeof(num)) == -1)
-        {
-            fprintf(STDERR_FILENO, "primes: write() fail\n");
-            exit(-1);
-        }
+            err("primes: write() fail\n");
     }
 }
