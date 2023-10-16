@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "sysinfo.h"
 
 struct cpu cpus[NCPU];
 
@@ -287,6 +288,9 @@ fork(void)
   if((np = allocproc()) == 0){
     return -1;
   }
+
+  // Copy traced status from parent to child.
+  np->traced = p->traced;
 
   // Copy user memory from parent to child.
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
@@ -685,4 +689,30 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+int trace(int traced)
+{
+  struct proc *p = myproc();
+
+  p->traced |= traced;
+
+  return 0;
+}
+
+int usednum(void)
+{
+  int num = 0;
+
+  for (int i = 0; i < NPROC; i++)
+    num += (proc[i].state != UNUSED);
+  return num;
+}
+
+int sysinfo(struct sysinfo *info)
+{
+    info->freemem = kfreemem();
+    info->nproc = usednum();
+
+    return 0;
 }

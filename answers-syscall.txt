@@ -1,0 +1,12 @@
+(1) usertrap()
+
+(2) 0x7; register a7, which used to points out the code of syscall here
+
+(3) user mode(SPP is set to 0)
+
+(4) 80002054:	00002683          	lw	a3,0(zero) # 0 <_entry-0x80000000>; a3
+
+(5) It caused a segment fault because the page which address 0 in wasn't mapped.
+    The value of scause is 0xd, corresponding to "Load page fault".
+
+(6) initcode, pid = 1
