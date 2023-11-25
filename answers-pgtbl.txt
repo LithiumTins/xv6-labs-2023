@@ -1,0 +1,2 @@
+(1) All syscalls that only get read-only result can be made faster by putting more data into struct usyscall.
+(2) code; code; guard page of user stack; user stack; USYSCALL; trapframe; trampoline
