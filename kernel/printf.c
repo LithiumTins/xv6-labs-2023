@@ -133,3 +133,19 @@ printfinit(void)
   initlock(&pr.lock, "pr");
   pr.locking = 1;
 }
+
+extern pagetable_t kernel_pagetable;
+
+void backtrace()
+{
+  uint64 fp = r_fp();
+  uint64 guard = PGROUNDDOWN(fp);
+
+  printf("backtrace:\n");
+
+  while (fp >= guard && fp < guard + PGSIZE)
+  {
+    printf("%p\n", *((uint64 *)fp - 1));
+    fp = *((uint64 *)fp - 2);
+  }
+}

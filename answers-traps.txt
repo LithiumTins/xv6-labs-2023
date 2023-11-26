@@ -1,0 +1,6 @@
+(1) RISCV passes argument with registers a0-a7, and in this case 13 is passed with register a2
+(2) since the function f and g do trivial work, they are optimized out and the call is replaced with a single statement li a1, 12
+(3) 0x642
+(4) 0x38, that is, the next instruction in function main
+(5) Hello world; 0x726c6400
+(6) Guess that it will print out the value in register a2
