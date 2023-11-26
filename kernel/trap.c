@@ -65,6 +65,40 @@ usertrap(void)
     intr_on();
 
     syscall();
+  } else if (r_scause() == 0xf) {
+    // page fault
+    uint64 va = PGROUNDDOWN(r_stval());
+    if (va > p->sz) {
+      printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
+      printf("            sepc=%p stval=%p\n", r_sepc(), va);
+      setkilled(p);
+      goto jumpout;
+    }
+    pte_t *pte = walk(p->pagetable, va, 0);
+    if (pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0 || (*pte & PTE_COW) == 0) {
+      printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
+      printf("            sepc=%p stval=%p\n", r_sepc(), va);
+      setkilled(p);
+      goto jumpout;
+    }
+    uint64 pa = PTE2PA(*pte);
+    uint flags = PTE_FLAGS(*pte) | PTE_W;
+    flags &= ~PTE_COW;
+    char *mem;
+    if ((mem = kalloc()) == 0) {
+      printf("usertrap(): out of memory\n");
+      setkilled(p);
+      goto jumpout;
+    }
+    memmove(mem, (char*)pa, PGSIZE);
+    uvmunmap(p->pagetable, va, 1, 0);
+    if (mappages(p->pagetable, va, PGSIZE, (uint64)mem, flags) != 0){
+      kfree(mem);
+      printf("usertrap(): unable to map\n");
+      setkilled(p);
+      goto jumpout;
+    }
+    kfree((void *)pa);
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {
@@ -73,6 +107,7 @@ usertrap(void)
     setkilled(p);
   }
 
+jumpout:
   if(killed(p))
     exit(-1);
 
