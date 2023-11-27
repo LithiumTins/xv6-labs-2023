@@ -1,0 +1,13 @@
+events:
+(0) assume that thread 1 and thread 2 put on the same bucket，and at first the first key is K
+(1) thread 1 tries putting a key and finds it doesn't exist
+(2) thread 1 enter insert()
+(3) thread 1 is scheduled out
+(4) thread 2 is scheduled
+(5) thread 2 tries putting a key and finds it doesn't exist
+(6) thread 2 enter insert()
+(7) thread 2 insert a new key and update bucket pointer to point to it, the second key is K
+(8) thread 2 is scheduled out 
+(9) thread 1 is scheduled
+(10) thread 1 insert a new key and update bucket pointer to point to it, the second key is K
+(11) now the key inserted by thread 2 is lost
