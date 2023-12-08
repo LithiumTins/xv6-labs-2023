@@ -256,7 +256,7 @@ create(char *path, short type, short major, short minor)
   if((ip = dirlookup(dp, name, 0)) != 0){
     iunlockput(dp);
     ilock(ip);
-    if(type == T_FILE && (ip->type == T_FILE || ip->type == T_DEVICE))
+    if(type == T_FILE && (ip->type == T_FILE || ip->type == T_DEVICE || ip->type == T_SYMLINK))
       return ip;
     iunlockput(ip);
     return 0;
@@ -309,6 +309,7 @@ sys_open(void)
   struct file *f;
   struct inode *ip;
   int n;
+  int link_times = 0;
 
   argint(1, &omode);
   if((n = argstr(0, path, MAXPATH)) < 0)
@@ -318,16 +319,40 @@ sys_open(void)
 
   if(omode & O_CREATE){
     ip = create(path, T_FILE, 0, 0);
+    while (!(omode & O_NOFOLLOW) && ip != 0 && ip->type == T_SYMLINK && link_times++ < 10) {
+      memmove(path, ip->linkpath, strlen(ip->linkpath) + 1);
+      iunlockput(ip);
+      ip = create(path, T_FILE, 0, 0);
+    }
+    if (!(omode & O_NOFOLLOW) && ip != 0 && ip->type == T_SYMLINK) {
+      iunlockput(ip);
+      end_op();
+      return -1;
+    }
     if(ip == 0){
       end_op();
       return -1;
     }
   } else {
-    if((ip = namei(path)) == 0){
+    if (omode & O_NOFOLLOW) {
+      ip = namei(path);
+    } else {
+      while ((ip = namei(path)) != 0 && ip->type == T_SYMLINK && link_times++ < 10) {
+        ilock(ip);
+        memmove(path, ip->linkpath, strlen(ip->linkpath) + 1);
+        iunlockput(ip);
+      }
+    }
+    if(ip == 0){
       end_op();
       return -1;
     }
     ilock(ip);
+    if (!(omode & O_NOFOLLOW) && ip->type == T_SYMLINK) {
+      iunlockput(ip);
+      end_op();
+      return -1;
+    }
     if(ip->type == T_DIR && omode != O_RDONLY){
       iunlockput(ip);
       end_op();
@@ -501,5 +526,32 @@ sys_pipe(void)
     fileclose(wf);
     return -1;
   }
+  return 0;
+}
+
+uint64
+sys_symlink(void)
+{
+  char target[MAXPATH], path[MAXPATH];
+
+  if (argstr(0, target, MAXPATH) < 0)
+    return -1;
+  if (argstr(1, path, MAXPATH) < 0)
+    return -1;
+
+  begin_op();
+
+  struct inode *ipath = create(path, T_SYMLINK, 0, 0);
+  if (!ipath) {
+    end_op();
+    return -1;
+  }
+
+  memmove(ipath->linkpath, target, strlen(target) + 1);
+
+  iupdate(ipath);
+  iunlockput(ipath);
+  end_op();
+
   return 0;
 }
