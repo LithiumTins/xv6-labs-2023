@@ -5,6 +5,18 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "fcntl.h"
+
+struct file {
+  enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type;
+  int ref; // reference count
+  char readable;
+  char writable;
+  struct pipe *pipe; // FD_PIPE
+  struct inode *ip;  // FD_INODE and FD_DEVICE
+  uint off;          // FD_INODE
+  short major;       // FD_DEVICE
+};
 
 struct spinlock tickslock;
 uint ticks;
@@ -65,6 +77,32 @@ usertrap(void)
     intr_on();
 
     syscall();
+  } else if (r_scause() == 0xd || r_scause() == 0xf) {
+    uint64 va = r_stval();
+    int mapped = 0;
+    for (int i = 0; i < 16; i++) {
+      struct vma *m = &p->maps[i];
+      if (!m->valid || va < m->va || va >= m->va + m->len)
+        continue;
+      if (walkaddr(p->pagetable, va) != 0)
+        continue;
+      mapped = 1;
+      uvmalloc(p->pagetable, PGROUNDDOWN(va), PGROUNDDOWN(va) + PGSIZE, PTE_W);
+      ilock(m->f->ip);
+      readi(m->f->ip, 1, PGROUNDDOWN(va), PGROUNDDOWN(va) - m->va, PGSIZE);
+      iunlock(m->f->ip);
+      if (!(m->prot & PROT_WRITE))
+      {
+        pte_t *pte = walk(p->pagetable, va, 0);
+        *pte &= ~PTE_W;
+      }
+      break;
+    }
+    if (!mapped) {
+      printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
+      printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
+      exit(-1);
+    }
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {

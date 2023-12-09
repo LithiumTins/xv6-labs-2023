@@ -5,6 +5,42 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "fcntl.h"
+
+struct file {
+  enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type;
+  int ref; // reference count
+  char readable;
+  char writable;
+  struct pipe *pipe; // FD_PIPE
+  struct inode *ip;  // FD_INODE and FD_DEVICE
+  uint off;          // FD_INODE
+  short major;       // FD_DEVICE
+};
+
+struct sleeplock {
+  uint locked;       // Is the lock held?
+  struct spinlock lk; // spinlock protecting this sleep lock
+  
+  // For debugging:
+  char *name;        // Name of lock.
+  int pid;           // Process holding lock
+};
+
+struct inode {
+  uint dev;           // Device number
+  uint inum;          // Inode number
+  int ref;            // Reference count
+  struct sleeplock lock; // protects everything below here
+  int valid;          // inode has been read from disk?
+
+  short type;         // copy of disk inode
+  short major;
+  short minor;
+  short nlink;
+  uint size;
+  uint addrs[13];
+};
 
 struct cpu cpus[NCPU];
 
@@ -145,6 +181,8 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
+
+  p->va = KERNBASE;
 
   return p;
 }
@@ -310,6 +348,13 @@ fork(void)
 
   safestrcpy(np->name, p->name, sizeof(p->name));
 
+  for (int j = 0; j < 16; j++)
+  {
+    np->maps[j] = p->maps[j];
+    if (np->maps[j].valid)
+      np->maps[j].f->ref++;
+  }
+
   pid = np->pid;
 
   release(&np->lock);
@@ -350,6 +395,30 @@ exit(int status)
 
   if(p == initproc)
     panic("init exiting");
+
+  for (int i = 0; i < 16; i++)
+  {
+    struct vma *m = &p->maps[i];
+    if (!m->valid)
+      continue;
+    for (uint64 va = m->va; va < m->va + m->len; va += PGSIZE)
+    {
+      if (walkaddr(p->pagetable, va) == 0)
+        continue;
+      if (m->flag == MAP_SHARED)
+      {
+        begin_op();
+        ilock(m->f->ip);
+        int len = (PGSIZE > (m->va + m->len - va)) ? (m->va + m->len - va) : PGSIZE;
+        writei(m->f->ip, 1, va, m->offset + va - m->va, len);
+        iunlock(m->f->ip);
+        end_op();
+      }
+      uvmunmap(p->pagetable, va, 1, 1);
+    }
+    m->f->ref--;
+    m->valid = 0;
+  }
 
   // Close all open files.
   for(int fd = 0; fd < NOFILE; fd++){
